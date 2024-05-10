@@ -160,6 +160,7 @@ public class Planner {
             System.out.println(e);
             return;
         }
+        queue.getChannel().basicAck(delivery.getEnvelope().getDeliveryTag(), false);
 
         String hashtext = getMD5Info(ni);
         ni.setHash(hashtext);
