@@ -2,8 +2,7 @@ package org.example;
 
 import org.apache.http.HttpHost;
 import org.apache.lucene.search.TotalHits;
-import org.elasticsearch.action.get.GetRequest;
-import org.elasticsearch.action.get.GetResponse;
+import org.elasticsearch.action.get.*;
 import org.elasticsearch.action.index.IndexRequest;
 import org.elasticsearch.action.index.IndexResponse;
 import org.elasticsearch.action.search.SearchRequest;
@@ -31,9 +30,7 @@ import org.elasticsearch.index.query.QueryBuilders.*;
 
 import java.io.IOException;
 import java.text.SimpleDateFormat;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.TimeZone;
+import java.util.*;
 
 public class HighElasticClient {
     RestHighLevelClient client;
@@ -80,24 +77,6 @@ public class HighElasticClient {
             return;
         }
     }
-
-
-
-//    public boolean storeNewsInfo(NewsInfo newsInfo) throws IOException {
-//        IndexRequest request = new IndexRequest(IndexName);
-//        request.id(newsInfo.getHash());
-//        request.source(newsInfo.toMap(), XContentType.JSON);
-//
-//        try {
-//            IndexResponse response = client.index(request, RequestOptions.DEFAULT);
-//            System.out.println("Indexed with id " + response.getId());
-//            return true;
-//        } catch (IOException e) {
-//            System.out.println("ERROR storing news info: " + e.getMessage());
-//            return false;
-//        }
-//    }
-
 
     public boolean storeNewsInfo(NewsInfo newsInfo) throws IOException {
         IndexRequest request = new IndexRequest(IndexName);
@@ -257,30 +236,61 @@ public class HighElasticClient {
         }
     }
 
-//    public long countNewsByDay(String date) throws IOException {
-//        SearchSourceBuilder sourceBuilder = new SearchSourceBuilder();
-//        sourceBuilder.query(QueryBuilders.termQuery("date", date));
-//        sourceBuilder.aggregation(AggregationBuilders.count("news_count").field("news_id"));
-//
-//        SearchRequest request = new SearchRequest(IndexName);
-//        request.source(sourceBuilder);
-//
-//        SearchResponse response = client.search(request, RequestOptions.DEFAULT);
-//        ParsedAdjacencyMatrix.ParsedBucket aggregation = response.getAggregations().get("news_count");
-//        return aggregation.getDocCount();
-//    }
-//public Map<String, Long> aggregateByDate() throws IOException {
-//    SearchResponse sr = client.prepareSearch()
-//            .addAggregation(
-//                    AggregationBuilders.terms("by_country").field("country")
-//                            .subAggregation(AggregationBuilders.dateHistogram("by_year")
-//                                    .field("dateOfBirth")
-//                                    .calendarInterval(DateHistogramInterval.YEAR)
-//                                    .subAggregation(AggregationBuilders.avg("avg_children").field("children"))
-//                            )
-//            )
-//            .execute().actionGet();
-//}
+    public List<NewsInfo> multiGetNewsInfo(List<String> hashes) throws IOException {
+        MultiGetRequest multiGetRequest = new MultiGetRequest();
+        for (String hash : hashes) {
+            multiGetRequest.add(new MultiGetRequest.Item(IndexName, hash));
+        }
+
+        try {
+            MultiGetResponse multiGetResponse = client.mget(multiGetRequest, RequestOptions.DEFAULT);
+            List<NewsInfo> newsInfos = new ArrayList<>();
+            for (MultiGetItemResponse itemResponse : multiGetResponse.getResponses()) {
+                GetResponse getResponse = itemResponse.getResponse();
+                if (getResponse.isExists()) {
+                    Map<String, Object> sourceAsMap = getResponse.getSourceAsMap();
+                    NewsInfo newsInfo = new NewsInfo();
+                    newsInfo.fromMap(sourceAsMap);
+                    newsInfos.add(newsInfo);
+                }
+            }
+            return newsInfos;
+        } catch (IOException e) {
+            System.out.println("ERROR searching news by id: " + e.getMessage());
+            return null;
+        }
+    }
+
+
+    public void searchNewsInfoByDateRange(String startDate, String endDate) throws IOException {
+        SearchSourceBuilder sourceBuilder = new SearchSourceBuilder();
+
+        // устанавливаем фильтр по периоду времени
+        sourceBuilder.query(QueryBuilders.rangeQuery("date")
+                .gte(startDate)
+                .lte(endDate));
+
+        // добавляем агрегацию по дате
+        sourceBuilder.aggregation(AggregationBuilders.dateHistogram("date_histogram")
+                .field("date")
+                .calendarInterval(DateHistogramInterval.DAY)
+                .format("dd.MM.yyyy"));
+
+        SearchRequest searchRequest = new SearchRequest("news");
+        searchRequest.source(sourceBuilder);
+
+        try {
+            SearchResponse searchResponse = client.search(searchRequest, RequestOptions.DEFAULT);
+            Histogram dateHistogram = searchResponse.getAggregations().get("date_histogram");
+            for (Histogram.Bucket bucket : dateHistogram.getBuckets()) {
+                String date = bucket.getKeyAsString();
+                long count = bucket.getDocCount();
+                System.out.println("Date: " + date + ", count: " + count);
+            }
+        } catch (IOException e) {
+            System.out.println("ERROR searching documents: " + e.getMessage());
+        }
+    }
 
 
 }
