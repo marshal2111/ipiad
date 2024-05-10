@@ -1,10 +1,16 @@
 package org.example;
 
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.Map;
+
 public class NewsInfo {
     String hash;
     String text;
     String header;
-    String date;
+    Date date;
     String link;
 
     public void print() {
@@ -22,6 +28,33 @@ public class NewsInfo {
         System.out.println();
     }
 
+    public Map<String, String> toMap() {
+        Map<String, String> map = new HashMap<>();
+        map.put("hash", hash);
+        map.put("text", text);
+        map.put("header", header);
+        SimpleDateFormat dateFormat = new SimpleDateFormat("dd.MM.yyyy");
+        String dateString = dateFormat.format(date);
+        map.put("date", dateString);
+        map.put("link", link);
+        return map;
+    }
+
+    public void fromMap(Map<String, Object> map) {
+        this.hash = map.get("hash").toString();
+        this.text = map.get("text").toString();
+        this.header = map.get("header").toString();
+        // Преобразовать дату из формата "dd.MM.yyyy" в объект Date
+        String dateString = map.get("date").toString();
+        SimpleDateFormat dateFormat = new SimpleDateFormat("dd.MM.yyyy");
+        try {
+            this.date = dateFormat.parse(dateString);
+        } catch (ParseException e) {
+            throw new RuntimeException("Cannot parse date: " + dateString, e);
+        }
+        this.link = map.get("link").toString();
+    }
+
     public String getText() {
         return text;
     }
@@ -30,7 +63,7 @@ public class NewsInfo {
         return header;
     }
 
-    public String getDate() {
+    public java.util.Date getDate() {
         return date;
     }
 
@@ -46,7 +79,7 @@ public class NewsInfo {
         this.header = header;
     }
 
-    public void setDate(String date) {
+    public void setDate(Date date) {
         this.date = date;
     }
 

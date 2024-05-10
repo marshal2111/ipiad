@@ -17,10 +17,9 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.zip.CRC32;
-import java.util.zip.Checksum;
 
 //TODO: single channel for single connection
 
@@ -28,7 +27,7 @@ public class Planner {
     private static final String USER = "guest";
     private static final String HOST = "127.0.0.1";
     private static final String PASS = "guest";
-    Map<Integer, NewsHeader> newsStore = new HashMap<>();
+    Map<Integer, NewsHeader> headerStore = new HashMap<>();
     private String SEND_QUEUE_NAME = "planner_queue";
     private String RECIEVE_QUEUE_NAME = "crawler_queue";
     String SEND_ROUTING_KEY = "pl_to_cr";
@@ -37,13 +36,13 @@ public class Planner {
     Queue queue;
 
     Channel channel;
-    ElasticWorker elasticWorker;
+    HighElasticClient esClient;
     private static final String EXCHANGE_NAME = "parser";
 
     Planner() throws InterruptedException, IOException {
         this.queue = new Queue(RECIEVE_ROUTING_KEY, EXCHANGE_NAME, RECIEVE_QUEUE_NAME);
-        this.elasticWorker = new ElasticWorker();
-
+        this.esClient = new HighElasticClient();
+        this.esClient.NewClient();
         // создание фабрики соединений
         ConnectionFactory factory = new ConnectionFactory();
         factory.setHost(HOST);
@@ -120,7 +119,8 @@ public class Planner {
             for (Element a : as) {
                 Elements dates = a.select("div.cell-info__date");
                 NewsHeader nif = new NewsHeader(a.attr("title"), dates.text(), a.attr("href"));
-                newsStore.put(nif.ID, nif);
+                nif.hashMD5 = getMD5Header(nif);
+                headerStore.put(nif.ID, nif);
                 nif.Store();
             }
             SendToProccess();
@@ -148,6 +148,10 @@ public class Planner {
     DeliverCallback store = (consumerTag, delivery) -> {
         String jsonString = new String(delivery.getBody(), StandardCharsets.UTF_8);
         ObjectMapper objectMapper = new ObjectMapper();
+
+        SimpleDateFormat dateFormat = new SimpleDateFormat("dd.MM.yyyy");
+        objectMapper.setDateFormat(dateFormat);
+
         NewsInfo ni;
         try {
             ni = objectMapper.readValue(jsonString, NewsInfo.class);
@@ -157,6 +161,36 @@ public class Planner {
             return;
         }
 
+        String hashtext = getMD5Info(ni);
+        ni.setHash(hashtext);
+
+        NewsInfo storedni = esClient.searchNewsInfo(hashtext);
+
+//      Сохранение в базу
+        if (storedni == null) {
+            System.out.println("STORE");
+            esClient.storeNewsInfo(ni);
+            ni.print();
+            System.out.println("STORE");
+        }
+
+    };
+
+//  Отправка на обработку в crawler
+    private void SendToProccess() {
+        List<String> urls = new ArrayList<>();
+        this.headerStore.forEach((key, value) -> {
+            urls.add(value.link);
+        });
+        JSONArray jsonArray = new JSONArray(urls);
+
+        String json = jsonArray.toString();
+        System.out.println(json);
+        SendMessage(json);
+    }
+
+//  Вычисление хэша исходя из структуры данных о новости
+    private String getMD5Info(NewsInfo ni) {
         MessageDigest md = null;
         try {
             md = MessageDigest.getInstance("MD5");
@@ -166,36 +200,18 @@ public class Planner {
         byte[] messageDigest = md.digest((ni.header + ni.link).getBytes());
         BigInteger no = new BigInteger(1, messageDigest);
         String hashtext = no.toString(16);
-
-        AtomicReference<Boolean> isStore = new AtomicReference<>(true);
-        newsStore.forEach((key, value) -> {
-            if ((Objects.equals(hashtext, value.hashMD5)) && (value.read)) {
-                System.out.println("COPY");
-                System.out.println(value.title);
-                isStore.set(false);
-            } else if (Objects.equals(hashtext, value.hashMD5)) {
-                System.out.println("READ");
-                value.read = true;
-            }
-        });
-        if (isStore.get()) {
-            System.out.println("STORED DATA");
-            System.out.println(jsonString);
-            elasticWorker.storeNewsInfo(ni);
-            System.out.println("STORED DATA");
+        return hashtext;
+    }
+    private String getMD5Header(NewsHeader ni) {
+        MessageDigest md = null;
+        try {
+            md = MessageDigest.getInstance("MD5");
+        } catch (NoSuchAlgorithmException e) {
+            throw new RuntimeException(e);
         }
-
-    };
-
-    private void SendToProccess() {
-        List<String> urls = new ArrayList<>();
-        this.newsStore.forEach((key, value) -> {
-            urls.add(value.link);
-        });
-        JSONArray jsonArray = new JSONArray(urls);
-
-        String json = jsonArray.toString();
-        System.out.println(json);
-        SendMessage(json);
+        byte[] messageDigest = md.digest((ni.title + ni.link).getBytes());
+        BigInteger no = new BigInteger(1, messageDigest);
+        String hashtext = no.toString(16);
+        return hashtext;
     }
 }
