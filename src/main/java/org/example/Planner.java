@@ -21,7 +21,6 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
 import java.util.*;
-import java.util.concurrent.atomic.AtomicReference;
 
 //TODO: single channel for single connection
 
@@ -44,66 +43,68 @@ public class Planner {
         System.setProperty("log4j.configurationFile", "C:\\Users\\senio\\IdeaProjects\\planner\\src\\main\\java\\org\\example\\log4j2.xml");
     }
 
-    private static Logger log = LogManager.getLogger();
+    private static Logger LOGGER = LogManager.getLogger();
     private static final String EXCHANGE_NAME = "parser";
 
-    Planner() throws InterruptedException, IOException {
+    Planner() throws IOException {
         this.queue = new Queue(RECIEVE_ROUTING_KEY, EXCHANGE_NAME, RECIEVE_QUEUE_NAME);
         this.esClient = new HighElasticClient();
-        // создание фабрики соединений
+
         ConnectionFactory factory = new ConnectionFactory();
         factory.setHost(HOST);
         factory.setUsername(USER);
         factory.setPassword(PASS);
-//        NEW
         factory.useNio();
         factory.setConnectionTimeout(50000);
         factory.setRequestedHeartbeat(100);
-//        NEW
-        // создание соединения
+
         Connection connection;
         try {
             connection = factory.newConnection();
         } catch (Exception e) {
-            log.info("Queue()");
-            log.info(e);
+            LOGGER.info("Queue()");
+            LOGGER.info(e);
             return;
         }
         Channel channel;
         try {
             channel = connection.createChannel();
         } catch (Exception e) {
-            log.info("connection.createChannel");
-            log.info(e);
+            LOGGER.info("connection.createChannel");
+            LOGGER.info(e);
             return;
         }
         try {
             channel.exchangeDeclare(EXCHANGE_NAME, "direct");
         } catch (Exception e) {
-            log.info("channel.exchangeDeclare");
-            log.info(e);
+            LOGGER.info("channel.exchangeDeclare");
+            LOGGER.info(e);
             return;
         }
 
         try {
             channel.queueDeclare(SEND_QUEUE_NAME, false, false, false, null);
         } catch (Exception e) {
-            log.info("channel.queueDeclare");
-            log.info(e);
+            LOGGER.info("channel.queueDeclare");
+            LOGGER.info(e);
             return;
         }
         this.channel = channel;
     }
+    public void close() throws IOException {
+        if (esClient != null) {
+            esClient.close();
+        }
+    }
 
     public boolean getNewsLinks(String url) {
         try {
-            // Получаем HTML-страницу с сайта
             Document document;
             try {
                 document = Jsoup.connect(url).get();
             } catch (Exception e) {
-                log.info("Error getting html code");
-                log.info(e);
+                LOGGER.info("Error getting html code");
+                LOGGER.info(e);
                 return false;
             }
             int statusCode = document.connection().response().statusCode();
@@ -111,13 +112,13 @@ public class Planner {
                 case 200:
                     break;
                 case 404:
-                    log.error("Error: page not found");
+                    LOGGER.error("Error: page not found");
                     return false;
                 case 500:
-                    log.error("Internal server error");
+                    LOGGER.error("Internal server error");
                     return false;
                 default:
-                    log.error("Incorrect status code: %d\n", statusCode);
+                    LOGGER.error("Incorrect status code: %d\n", statusCode);
                     return false;
             }
 
@@ -131,7 +132,6 @@ public class Planner {
                 nif.Store();
             }
             SendToProccess();
-//            Listen();
         } catch (Exception e) {
             e.printStackTrace();
             return false;
@@ -147,8 +147,8 @@ public class Planner {
         try {
             channel.basicPublish(EXCHANGE_NAME, SEND_ROUTING_KEY, null, msg.getBytes());
         } catch (Exception e) {
-            log.error("channel.basicPublish");
-            log.error(e);
+            LOGGER.error("channel.basicPublish");
+            LOGGER.error(e);
         }
     }
 
@@ -163,8 +163,8 @@ public class Planner {
         try {
             ni = objectMapper.readValue(jsonString, NewsInfo.class);
         } catch (JsonProcessingException e) {
-            log.error("objectMapper.writeValueAsString(ni)");
-            log.error(e);
+            LOGGER.error("objectMapper.writeValueAsString(ni)");
+            LOGGER.error(e);
             return;
         }
         queue.getChannel().basicAck(delivery.getEnvelope().getDeliveryTag(), false);
@@ -176,7 +176,7 @@ public class Planner {
 
 //      Сохранение в базу
         if (storedni == null) {
-            log.info("STORE" + ni.header);
+            LOGGER.info("STORE" + ni.header);
             esClient.storeNewsInfo(ni);
 //            ni.print();
         }
@@ -192,18 +192,18 @@ public class Planner {
                 NewsInfo storedni = esClient.searchNewsInfo(hashtext);
 //              Если записи в базе нет
                 if(storedni == null) {
-                    log.debug("Новость еще не в базе " + value.link);
+                    LOGGER.debug("Новость еще не в базе " + value.link);
                     urls.add(value.link);
                 }
             } catch (IOException e) {
-                log.error(e);
+                LOGGER.error(e);
             }
 
         });
         JSONArray jsonArray = new JSONArray(urls);
 
         String json = jsonArray.toString();
-        log.info(json);
+        LOGGER.info(json);
         SendMessage(json);
     }
 

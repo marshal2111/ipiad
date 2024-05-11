@@ -36,22 +36,22 @@ public class HighElasticClient {
         System.setProperty("log4j.configurationFile", "C:\\Users\\senio\\IdeaProjects\\planner\\src\\main\\java\\org\\example\\log4j2.xml");
     }
 
-    private static Logger log = LogManager.getLogger();
+    private static Logger LOGGER = LogManager.getLogger();
 
 
 
     RestHighLevelClient client;
-    String IndexName = "meows";
+    String INDEX_NAME = "meows";
     HighElasticClient(){
         client = new RestHighLevelClient(
                 RestClient.builder(
                         new HttpHost("localhost", 9200, "http"),
                         new HttpHost("localhost", 9201, "http")));
 
-        createIndex(IndexName);
+        createIndex(INDEX_NAME);
     }
 
-    public void Close() throws IOException {
+    public void close() throws IOException {
         client.close();
     }
 
@@ -61,7 +61,7 @@ public class HighElasticClient {
             // Проверить, существует ли индекс
             boolean indexExists = client.indices().exists(new GetIndexRequest(indexName), RequestOptions.DEFAULT);
             if (indexExists) {
-               log.debug("Index already exists: " + indexName);
+               LOGGER.debug("Index already exists: " + indexName);
                 return;
             }
 
@@ -77,9 +77,9 @@ public class HighElasticClient {
                     "  }\n" +
                     "}", XContentType.JSON);
             client.indices().create(request, RequestOptions.DEFAULT);
-            log.debug("Создан индекс: " + indexName);
+            LOGGER.debug("Создан индекс: " + indexName);
         } catch (IOException e) {
-            log.error("Ошибка создания индекса: " + e.getMessage());
+            LOGGER.error("Ошибка создания индекса: " + e.getMessage());
             return;
         }
     }
@@ -87,7 +87,7 @@ public class HighElasticClient {
 
 //    STORE NI Сохранение информации о новости
     public boolean storeNewsInfo(NewsInfo newsInfo) throws IOException {
-        IndexRequest request = new IndexRequest(IndexName);
+        IndexRequest request = new IndexRequest(INDEX_NAME);
         request.id(newsInfo.getHash());
 
         // Установить формат даты
@@ -98,16 +98,16 @@ public class HighElasticClient {
         Map<String, Object> source = new HashMap<>();
         source.putAll(newsInfo.toMap());
         source.put("date", formattedDate);
-        log.debug(source);
+        LOGGER.debug(source);
         // Установить источник документа
         request.source(source, XContentType.JSON);
 
         try {
             IndexResponse response = client.index(request, RequestOptions.DEFAULT);
-            log.debug("Записано с идентификатором: " + response.getId());
+            LOGGER.debug("Записано с идентификатором: " + response.getId());
             return true;
         } catch (IOException e) {
-            log.error("Ошибка записи новости: " + e.getMessage());
+            LOGGER.error("Ошибка записи новости: " + e.getMessage());
             return false;
         }
     }
@@ -115,7 +115,7 @@ public class HighElasticClient {
 
 //    SEARCH BY HASH поиск статьи по хэшу
     public NewsInfo searchNewsInfo(String hash) throws IOException {
-        GetRequest request = new GetRequest(IndexName, hash);
+        GetRequest request = new GetRequest(INDEX_NAME, hash);
 
         try {
             GetResponse response = client.get(request, RequestOptions.DEFAULT);
@@ -123,14 +123,14 @@ public class HighElasticClient {
                 Map<String, Object> sourceAsMap = response.getSourceAsMap();
                 NewsInfo newsInfo = new NewsInfo();
                 newsInfo.fromMap(sourceAsMap);
-                log.debug("Новость найдена: " + newsInfo.getHeader());
+                LOGGER.debug("Новость найдена: " + newsInfo.getHeader());
                 return newsInfo;
             } else {
-                log.debug("Новость не найдена");
+                LOGGER.debug("Новость не найдена");
                 return null;
             }
         } catch (IOException e) {
-            log.error("Ошибка поиска по хэшу новости: " + e.getMessage());
+            LOGGER.error("Ошибка поиска по хэшу новости: " + e.getMessage());
             return null;
         }
     }
@@ -144,7 +144,7 @@ public class HighElasticClient {
         SearchSourceBuilder sourceBuilder = new SearchSourceBuilder();
         sourceBuilder.query(queryBuilder);
 
-        SearchRequest request = new SearchRequest(IndexName);
+        SearchRequest request = new SearchRequest(INDEX_NAME);
         request.source(sourceBuilder);
 
         try {
@@ -157,15 +157,15 @@ public class HighElasticClient {
                 NewsInfo newsInfo = new NewsInfo();
                 newsInfo.fromMap(sourceAsMap);
                 if (newsInfo != null) {
-                    log.debug("Найдена новость " + newsInfo.getHeader());
+                    LOGGER.debug("Найдена новость " + newsInfo.getHeader());
                     return newsInfo;
                 } else {
-                    log.debug("ni == null");
+                    LOGGER.debug("ni == null");
                     break;
                 }
             }
         } catch (IOException e) {
-            log.error("Ошибка поиска новости: " + e.getMessage());
+            LOGGER.error("Ошибка поиска новости: " + e.getMessage());
             return null;
         }
         return null;
@@ -181,7 +181,7 @@ public class HighElasticClient {
         SearchSourceBuilder sourceBuilder = new SearchSourceBuilder();
         sourceBuilder.query(queryBuilder);
 
-        SearchRequest request = new SearchRequest(IndexName);
+        SearchRequest request = new SearchRequest(INDEX_NAME);
         request.source(sourceBuilder);
 
         try {
@@ -193,15 +193,15 @@ public class HighElasticClient {
                 NewsInfo newsInfo = new NewsInfo();
                 newsInfo.fromMap(sourceAsMap);
                 if (newsInfo != null) {
-                    log.debug("Найдена новость " + newsInfo.getHeader());
+                    LOGGER.debug("Найдена новость " + newsInfo.getHeader());
                     return newsInfo;
                 } else {
-                    log.error("ni == null");
+                    LOGGER.error("ni == null");
                     break;
                 }
             }
         } catch (IOException e) {
-            log.error("Ошибка поиска новости: " + e.getMessage());
+            LOGGER.error("Ошибка поиска новости: " + e.getMessage());
             return null;
         }
         return null;
@@ -217,7 +217,7 @@ public class HighElasticClient {
         SearchSourceBuilder sourceBuilder = new SearchSourceBuilder();
         sourceBuilder.aggregation(aggregationBuilder);
 
-        SearchRequest request = new SearchRequest(IndexName);
+        SearchRequest request = new SearchRequest(INDEX_NAME);
         request.source(sourceBuilder);
 
         try {
@@ -230,7 +230,7 @@ public class HighElasticClient {
 
             return result;
         } catch (IOException e) {
-            log.error("Ошибка поиска новостей: " + e.getMessage());
+            LOGGER.error("Ошибка поиска новостей: " + e.getMessage());
             return null;
         }
     }
@@ -239,7 +239,7 @@ public class HighElasticClient {
     public List<NewsInfo> multiGetNewsInfo(List<String> hashes) throws IOException {
         MultiGetRequest multiGetRequest = new MultiGetRequest();
         for (String hash : hashes) {
-            multiGetRequest.add(new MultiGetRequest.Item(IndexName, hash));
+            multiGetRequest.add(new MultiGetRequest.Item(INDEX_NAME, hash));
         }
 
         try {
@@ -256,7 +256,7 @@ public class HighElasticClient {
             }
             return newsInfos;
         } catch (IOException e) {
-            log.error("Ошибка MultiGet: " + e.getMessage());
+            LOGGER.error("Ошибка MultiGet: " + e.getMessage());
             return null;
         }
     }
@@ -276,7 +276,7 @@ public class HighElasticClient {
                 .calendarInterval(DateHistogramInterval.DAY)
                 .format("dd.MM.yyyy"));
 
-        SearchRequest searchRequest = new SearchRequest(IndexName);
+        SearchRequest searchRequest = new SearchRequest(INDEX_NAME);
         searchRequest.source(sourceBuilder);
 
         try {
@@ -288,7 +288,7 @@ public class HighElasticClient {
                 res.put(date,count);
             }
         } catch (IOException e) {
-            log.error("ERROR searching documents: " + e.getMessage());
+            LOGGER.error("ERROR searching documents: " + e.getMessage());
             return null;
         }
         return res;
@@ -303,7 +303,7 @@ public class HighElasticClient {
         // устанавливаем multi_match query
         sourceBuilder.query(QueryBuilders.multiMatchQuery(query, "text"));
 
-        SearchRequest searchRequest = new SearchRequest(IndexName);
+        SearchRequest searchRequest = new SearchRequest(INDEX_NAME);
         searchRequest.source(sourceBuilder);
 
         try {
@@ -315,7 +315,7 @@ public class HighElasticClient {
                 res.put(hash,text);
             }
         } catch (IOException e) {
-            log.error("Ошибка поиска: " + e.getMessage());
+            LOGGER.error("Ошибка поиска: " + e.getMessage());
             return null;
         }
         return res;
@@ -335,7 +335,7 @@ public class HighElasticClient {
         // устанавливаем размер результата в 0, чтобы не возвращались сами документы
         sourceBuilder.size(0);
 
-        SearchRequest searchRequest = new SearchRequest(IndexName);
+        SearchRequest searchRequest = new SearchRequest(INDEX_NAME);
         searchRequest.source(sourceBuilder);
 
         try {
@@ -344,7 +344,7 @@ public class HighElasticClient {
             long count = newsCount.getValue();
             return count;
         } catch (IOException e) {
-            log.error("Ошибка поиска: " + e.getMessage());
+            LOGGER.error("Ошибка поиска: " + e.getMessage());
             return 0;
         }
     }
@@ -370,7 +370,7 @@ public class HighElasticClient {
 //            log.debug("Level: " + level + ", количество логов: " + count);
             return count;
         } catch (IOException e) {
-            log.error("Ошибка поиска логов: " + e.getMessage());
+            LOGGER.error("Ошибка поиска логов: " + e.getMessage());
             return 0;
         }
     }
