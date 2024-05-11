@@ -15,20 +15,9 @@ public class Main {
 
         ExecutorService executor = Executors.newSingleThreadExecutor();
         executor.submit(() -> {
-            try {
-                planner.Listen();
-            } catch (IOException e) {
-                try {
-                    planner.close();
-                } catch (IOException ex) {
-                    throw new RuntimeException(ex);
-                }
-                System.out.println("Ошибка запуска Listen RabbitMQ");
-            }
+            planner.getNewsLinks(url);
         });
-        planner.getNewsLinks(url);
-        Thread.sleep(500000);
-        executor.shutdownNow();
+        planner.Listen();
 
 //        HighElasticClient esClient = new HighElasticClient();
 //
