@@ -5,6 +5,8 @@ import com.rabbitmq.client.Channel;
 import com.rabbitmq.client.Connection;
 import com.rabbitmq.client.ConnectionFactory;
 import com.rabbitmq.client.DeliverCallback;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.json.JSONArray;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.jsoup.Jsoup;
@@ -37,12 +39,17 @@ public class Planner {
 
     Channel channel;
     HighElasticClient esClient;
+
+    static {
+        System.setProperty("log4j.configurationFile", "C:\\Users\\senio\\IdeaProjects\\planner\\src\\main\\java\\org\\example\\log4j2.xml");
+    }
+
+    private static Logger log = LogManager.getLogger();
     private static final String EXCHANGE_NAME = "parser";
 
     Planner() throws InterruptedException, IOException {
         this.queue = new Queue(RECIEVE_ROUTING_KEY, EXCHANGE_NAME, RECIEVE_QUEUE_NAME);
         this.esClient = new HighElasticClient();
-        this.esClient.NewClient();
         // создание фабрики соединений
         ConnectionFactory factory = new ConnectionFactory();
         factory.setHost(HOST);
@@ -58,31 +65,31 @@ public class Planner {
         try {
             connection = factory.newConnection();
         } catch (Exception e) {
-            System.out.println("Queue()");
-            System.out.println(e);
+            log.info("Queue()");
+            log.info(e);
             return;
         }
         Channel channel;
         try {
             channel = connection.createChannel();
         } catch (Exception e) {
-            System.out.println("connection.createChannel");
-            System.out.println(e);
+            log.info("connection.createChannel");
+            log.info(e);
             return;
         }
         try {
             channel.exchangeDeclare(EXCHANGE_NAME, "direct");
         } catch (Exception e) {
-            System.out.println("channel.exchangeDeclare");
-            System.out.println(e);
+            log.info("channel.exchangeDeclare");
+            log.info(e);
             return;
         }
 
         try {
             channel.queueDeclare(SEND_QUEUE_NAME, false, false, false, null);
         } catch (Exception e) {
-            System.out.println("channel.queueDeclare");
-            System.out.println(e);
+            log.info("channel.queueDeclare");
+            log.info(e);
             return;
         }
         this.channel = channel;
@@ -95,8 +102,8 @@ public class Planner {
             try {
                 document = Jsoup.connect(url).get();
             } catch (Exception e) {
-                System.out.println("Error getting html code");
-                System.out.println(e);
+                log.info("Error getting html code");
+                log.info(e);
                 return false;
             }
             int statusCode = document.connection().response().statusCode();
@@ -104,13 +111,13 @@ public class Planner {
                 case 200:
                     break;
                 case 404:
-                    System.out.println("Error: page not found");
+                    log.error("Error: page not found");
                     return false;
                 case 500:
-                    System.out.println("Internal server error");
+                    log.error("Internal server error");
                     return false;
                 default:
-                    System.out.printf("Incorrect status code: %d\n", statusCode);
+                    log.error("Incorrect status code: %d\n", statusCode);
                     return false;
             }
 
@@ -140,8 +147,8 @@ public class Planner {
         try {
             channel.basicPublish(EXCHANGE_NAME, SEND_ROUTING_KEY, null, msg.getBytes());
         } catch (Exception e) {
-            System.out.println("channel.basicPublish");
-            System.out.println(e);
+            log.error("channel.basicPublish");
+            log.error(e);
         }
     }
 
@@ -156,8 +163,8 @@ public class Planner {
         try {
             ni = objectMapper.readValue(jsonString, NewsInfo.class);
         } catch (JsonProcessingException e) {
-            System.out.println("objectMapper.writeValueAsString(ni)");
-            System.out.println(e);
+            log.error("objectMapper.writeValueAsString(ni)");
+            log.error(e);
             return;
         }
         queue.getChannel().basicAck(delivery.getEnvelope().getDeliveryTag(), false);
@@ -169,10 +176,9 @@ public class Planner {
 
 //      Сохранение в базу
         if (storedni == null) {
-            System.out.println("STORE");
+            log.info("STORE" + ni.header);
             esClient.storeNewsInfo(ni);
-            ni.print();
-            System.out.println("STORE");
+//            ni.print();
         }
 
     };
@@ -186,7 +192,7 @@ public class Planner {
         JSONArray jsonArray = new JSONArray(urls);
 
         String json = jsonArray.toString();
-        System.out.println(json);
+        log.info(json);
         SendMessage(json);
     }
 

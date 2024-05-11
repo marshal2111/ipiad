@@ -15,7 +15,6 @@
     </properties>
     <dependencies>
         <dependency>
-            <!-- jsoup HTML parser library @ https://jsoup.org/ -->
             <groupId>org.jsoup</groupId>
             <artifactId>jsoup</artifactId>
             <version>1.17.2</version>
@@ -55,11 +54,6 @@
             <artifactId>elasticsearch-rest-high-level-client</artifactId>
             <version>7.17.18</version>
         </dependency>
-<!--        <dependency>-->
-<!--            <groupId>co.elastic.clients</groupId>-->
-<!--            <artifactId>elasticsearch-java</artifactId>-->
-<!--            <version>7.17.18</version>-->
-<!--        </dependency>-->
         <dependency>
             <groupId>jakarta.json</groupId>
             <artifactId>jakarta.json-api</artifactId>
@@ -70,11 +64,6 @@
             <artifactId>config</artifactId>
             <version>1.4.2</version>
         </dependency>
-<!--        <dependency>-->
-<!--            <groupId>org.elasticsearch.client</groupId>-->
-<!--            <artifactId>transport</artifactId>-->
-<!--            <version>7.17.9</version>-->
-<!--        </dependency>-->
         <dependency>
             <groupId>org.elasticsearch</groupId>
             <artifactId>elasticsearch-core</artifactId>
@@ -85,7 +74,16 @@
             <artifactId>elasticsearch</artifactId>
             <version>7.17.18</version>
         </dependency>
-
+        <dependency>
+            <groupId>net.logstash.logback</groupId>
+            <artifactId>logstash-logback-encoder</artifactId>
+            <version>6.6</version>
+        </dependency>
+        <dependency>
+            <groupId>com.github.dubasdey</groupId>
+            <artifactId>log4j2-jsonevent-layout</artifactId>
+            <version>0.0.4</version>
+        </dependency>
         <dependency>
             <groupId>com.github.dubasdey</groupId>
             <artifactId>log4j2-jsonevent-layout</artifactId>
