@@ -187,7 +187,18 @@ public class Planner {
     private void SendToProccess() {
         List<String> urls = new ArrayList<>();
         this.headerStore.forEach((key, value) -> {
-            urls.add(value.link);
+            try {
+                String hashtext = getMD5Header(value);
+                NewsInfo storedni = esClient.searchNewsInfo(hashtext);
+//              Если записи в базе нет
+                if(storedni == null) {
+                    log.debug("Новость еще не в базе " + value.link);
+                    urls.add(value.link);
+                }
+            } catch (IOException e) {
+                log.error(e);
+            }
+
         });
         JSONArray jsonArray = new JSONArray(urls);
 
