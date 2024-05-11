@@ -60,19 +60,23 @@ public class Main {
         System.out.println();
 
         System.out.println(" esClient.searchNewsInfoByDateRange(\"11.05.2024\",\"11.05.2024\");");
-        esClient.searchNewsInfoByDateRange("11.05.2024","11.05.2024");
+        m = esClient.searchNewsInfoByDateRange("11.05.2024","11.05.2024");
+        System.out.println(m);
         System.out.println();
 
         System.out.println("esClient.searchNewsByText(\"МОСКВА\")");
-        esClient.searchNewsByText("МОСКВА");
+        Map<String,String> m2 = esClient.searchNewsByText("МОСКВА");
+        System.out.println(m2);
         System.out.println();
 
         System.out.println("esClient.countNewsByDate(\"10.05.2024\");");
-        esClient.countNewsByDate("10.05.2024");
+        long c = esClient.countNewsByDate("10.05.2024");
+        System.out.println("Новостей по дате: " + c);
         System.out.println();
 
         System.out.println("esClient.countLogsByLevel(\"ERROR\");");
-        esClient.countLogsByLevel("ERROR");;
+        c = esClient.countLogsByLevel("ERROR");;
+        System.out.println("Логов по level: " + c);
         System.out.println();
 
     }

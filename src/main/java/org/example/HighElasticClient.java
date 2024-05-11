@@ -262,9 +262,9 @@ public class HighElasticClient {
     }
 
 // DATE HISTOGRAM AGG выдает записи в диапазоне дат
-    public void searchNewsInfoByDateRange(String startDate, String endDate) throws IOException {
+    public Map<String,Long> searchNewsInfoByDateRange(String startDate, String endDate) throws IOException {
         SearchSourceBuilder sourceBuilder = new SearchSourceBuilder();
-
+        HashMap<String,Long> res = new HashMap<>();
         // устанавливаем фильтр по периоду времени
         sourceBuilder.query(QueryBuilders.rangeQuery("date")
                 .gte(startDate)
@@ -285,19 +285,21 @@ public class HighElasticClient {
             for (Histogram.Bucket bucket : dateHistogram.getBuckets()) {
                 String date = bucket.getKeyAsString();
                 long count = bucket.getDocCount();
-                log.debug("Дата: " + date + ", количество новостей: " + count);
+                res.put(date,count);
             }
         } catch (IOException e) {
             log.error("ERROR searching documents: " + e.getMessage());
+            return null;
         }
+        return res;
     }
 
 
 //    FULL TEXT QUERY полнотекстовый поиск в тексте статьи.
 //    Я использовал для фильтрации по городу, так как в начале каждой статьи написано, где произошло событие(пример "МОСКВА")
-    public void searchNewsByText(String query) {
+    public Map<String,String> searchNewsByText(String query) {
         SearchSourceBuilder sourceBuilder = new SearchSourceBuilder();
-
+        HashMap<String,String> res = new HashMap<>();
         // устанавливаем multi_match query
         sourceBuilder.query(QueryBuilders.multiMatchQuery(query, "text"));
 
@@ -310,16 +312,18 @@ public class HighElasticClient {
             for (SearchHit hit : hits) {
                 String hash = (String) hit.getSourceAsMap().get("hash");
                 String text = (String) hit.getSourceAsMap().get("text");
-                log.debug("hash: " + hash + ", text: " + text);
+                res.put(hash,text);
             }
         } catch (IOException e) {
             log.error("Ошибка поиска: " + e.getMessage());
+            return null;
         }
+        return res;
     }
 
 
 //    METRICS AGGR Подсчет новостей к конкретную дату
-    public void countNewsByDate(String date) {
+    public long countNewsByDate(String date) {
         SearchSourceBuilder sourceBuilder = new SearchSourceBuilder();
 
         // устанавливаем фильтр по дате
@@ -338,14 +342,15 @@ public class HighElasticClient {
             SearchResponse searchResponse = client.search(searchRequest, RequestOptions.DEFAULT);
             Cardinality newsCount = searchResponse.getAggregations().get("news_count");
             long count = newsCount.getValue();
-            log.debug("Дата: " + date + ", количество новостей: " + count);
+            return count;
         } catch (IOException e) {
             log.error("Ошибка поиска: " + e.getMessage());
+            return 0;
         }
     }
 
 //   LOGSTASH AGGR Подсчет логов по типу (INFO, ERROR)
-    public void countLogsByLevel(String level) throws IOException {
+    public long countLogsByLevel(String level) throws IOException {
         SearchSourceBuilder sourceBuilder = new SearchSourceBuilder();
 
         // устанавливаем фильтр по уровню лога с использованием multi-match query
@@ -362,9 +367,11 @@ public class HighElasticClient {
             SearchResponse searchResponse = client.search(searchRequest, RequestOptions.DEFAULT);
             Filter infoCount = searchResponse.getAggregations().get("info_count");
             long count = infoCount.getDocCount();
-            log.debug("Level: " + level + ", количество логов: " + count);
+//            log.debug("Level: " + level + ", количество логов: " + count);
+            return count;
         } catch (IOException e) {
             log.error("Ошибка поиска логов: " + e.getMessage());
+            return 0;
         }
     }
 
