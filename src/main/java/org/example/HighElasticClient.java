@@ -39,10 +39,10 @@ public class HighElasticClient {
     private static Logger LOGGER = LogManager.getLogger();
 
 
-
     RestHighLevelClient client;
     String INDEX_NAME = "meows";
-    HighElasticClient(){
+
+    HighElasticClient() {
         client = new RestHighLevelClient(
                 RestClient.builder(
                         new HttpHost("localhost", 9200, "http"),
@@ -55,13 +55,13 @@ public class HighElasticClient {
         client.close();
     }
 
-//  Создание индекса
+    //  Создание индекса
     private void createIndex(String indexName) {
         try {
             // Проверить, существует ли индекс
             boolean indexExists = client.indices().exists(new GetIndexRequest(indexName), RequestOptions.DEFAULT);
             if (indexExists) {
-               LOGGER.debug("Index already exists: " + indexName);
+                LOGGER.debug("Index already exists: " + indexName);
                 return;
             }
 
@@ -85,7 +85,7 @@ public class HighElasticClient {
     }
 
 
-//    STORE NI Сохранение информации о новости
+    //    STORE NI Сохранение информации о новости
     public boolean storeNewsInfo(NewsInfo newsInfo) throws IOException {
         IndexRequest request = new IndexRequest(INDEX_NAME);
         request.id(newsInfo.getHash());
@@ -113,7 +113,7 @@ public class HighElasticClient {
     }
 
 
-//    SEARCH BY HASH поиск статьи по хэшу
+    //    SEARCH BY HASH поиск статьи по хэшу
     public NewsInfo searchNewsInfo(String hash) throws IOException {
         GetRequest request = new GetRequest(INDEX_NAME, hash);
 
@@ -135,7 +135,7 @@ public class HighElasticClient {
         }
     }
 
-//    AND Поиск статьи по заголовку И ссылке
+    //    AND Поиск статьи по заголовку И ссылке
     public NewsInfo searchNewsInfoAnd(String title, String link) throws IOException {
         BoolQueryBuilder queryBuilder = QueryBuilders.boolQuery();
         queryBuilder.must(QueryBuilders.matchQuery("header", title));
@@ -171,7 +171,7 @@ public class HighElasticClient {
         return null;
     }
 
-//    OR Поиск статьи по заголовку ИЛИ ссылке
+    //    OR Поиск статьи по заголовку ИЛИ ссылке
     public NewsInfo searchNewsInfoOr(String title, String link) throws IOException {
         BoolQueryBuilder queryBuilder = QueryBuilders.boolQuery();
         queryBuilder.should(QueryBuilders.matchQuery("header", title));
@@ -207,7 +207,7 @@ public class HighElasticClient {
         return null;
     }
 
-//   DATE HISTOGRAM AGG выдает все записи, сортируя их по дате
+    //   DATE HISTOGRAM AGG выдает все записи, сортируя их по дате
     public Map<String, Long> searchNewsInfoSortByDate() throws IOException {
         DateHistogramAggregationBuilder aggregationBuilder = AggregationBuilders.dateHistogram("news_date_aggregation")
                 .field("date")
@@ -235,7 +235,7 @@ public class HighElasticClient {
         }
     }
 
-//    MULTIGET получение записей по хэшам
+    //    MULTIGET получение записей по хэшам
     public List<NewsInfo> multiGetNewsInfo(List<String> hashes) throws IOException {
         MultiGetRequest multiGetRequest = new MultiGetRequest();
         for (String hash : hashes) {
@@ -261,10 +261,10 @@ public class HighElasticClient {
         }
     }
 
-// DATE HISTOGRAM AGG выдает записи в диапазоне дат
-    public Map<String,Long> searchNewsInfoByDateRange(String startDate, String endDate) throws IOException {
+    // DATE HISTOGRAM AGG выдает записи в диапазоне дат
+    public Map<String, Long> searchNewsInfoByDateRange(String startDate, String endDate) throws IOException {
         SearchSourceBuilder sourceBuilder = new SearchSourceBuilder();
-        HashMap<String,Long> res = new HashMap<>();
+        HashMap<String, Long> res = new HashMap<>();
         // устанавливаем фильтр по периоду времени
         sourceBuilder.query(QueryBuilders.rangeQuery("date")
                 .gte(startDate)
@@ -285,7 +285,7 @@ public class HighElasticClient {
             for (Histogram.Bucket bucket : dateHistogram.getBuckets()) {
                 String date = bucket.getKeyAsString();
                 long count = bucket.getDocCount();
-                res.put(date,count);
+                res.put(date, count);
             }
         } catch (IOException e) {
             LOGGER.error("ERROR searching documents: " + e.getMessage());
@@ -295,11 +295,11 @@ public class HighElasticClient {
     }
 
 
-//    FULL TEXT QUERY полнотекстовый поиск в тексте статьи.
+    //    FULL TEXT QUERY полнотекстовый поиск в тексте статьи.
 //    Я использовал для фильтрации по городу, так как в начале каждой статьи написано, где произошло событие(пример "МОСКВА")
-    public Map<String,String> searchNewsByText(String query) {
+    public Map<String, String> searchNewsByText(String query) {
         SearchSourceBuilder sourceBuilder = new SearchSourceBuilder();
-        HashMap<String,String> res = new HashMap<>();
+        HashMap<String, String> res = new HashMap<>();
         // устанавливаем multi_match query
         sourceBuilder.query(QueryBuilders.multiMatchQuery(query, "text"));
 
@@ -312,7 +312,36 @@ public class HighElasticClient {
             for (SearchHit hit : hits) {
                 String hash = (String) hit.getSourceAsMap().get("hash");
                 String text = (String) hit.getSourceAsMap().get("text");
-                res.put(hash,text);
+                res.put(hash, text);
+            }
+        } catch (IOException e) {
+            LOGGER.error("Ошибка поиска: " + e.getMessage());
+            return null;
+        }
+        return res;
+    }
+
+    public Map<String, String> searchNewsByHeaderAndText(String header, String text, String date) {
+        SearchSourceBuilder sourceBuilder = new SearchSourceBuilder();
+        HashMap<String, String> res = new HashMap<>();
+
+        BoolQueryBuilder boolQueryBuilder = QueryBuilders.boolQuery();
+        boolQueryBuilder.must(QueryBuilders.matchQuery("header", header));
+        boolQueryBuilder.should(QueryBuilders.matchQuery("text", text));
+        boolQueryBuilder.filter(QueryBuilders.rangeQuery("date").gte(date));
+
+        sourceBuilder.query(boolQueryBuilder);
+
+        SearchRequest searchRequest = new SearchRequest(INDEX_NAME);
+        searchRequest.source(sourceBuilder);
+
+        try {
+            SearchResponse searchResponse = client.search(searchRequest, RequestOptions.DEFAULT);
+            SearchHit[] hits = searchResponse.getHits().getHits();
+            for (SearchHit hit : hits) {
+                String hash = (String) hit.getSourceAsMap().get("hash");
+                String head = (String) hit.getSourceAsMap().get("header");
+                res.put(hash, head);
             }
         } catch (IOException e) {
             LOGGER.error("Ошибка поиска: " + e.getMessage());
@@ -322,7 +351,7 @@ public class HighElasticClient {
     }
 
 
-//    METRICS AGGR Подсчет новостей к конкретную дату
+    //    METRICS AGGR Подсчет новостей к конкретную дату
     public long countNewsByDate(String date) {
         SearchSourceBuilder sourceBuilder = new SearchSourceBuilder();
 
@@ -349,7 +378,7 @@ public class HighElasticClient {
         }
     }
 
-//   LOGSTASH AGGR Подсчет логов по типу (INFO, ERROR)
+    //   LOGSTASH AGGR Подсчет логов по типу (INFO, ERROR)
     public long countLogsByLevel(String level) throws IOException {
         SearchSourceBuilder sourceBuilder = new SearchSourceBuilder();
 
@@ -374,8 +403,6 @@ public class HighElasticClient {
             return 0;
         }
     }
-
-
 
 
 }

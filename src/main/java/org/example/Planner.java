@@ -91,6 +91,7 @@ public class Planner {
         }
         this.channel = channel;
     }
+
     public void close() throws IOException {
         if (esClient != null) {
             esClient.close();
@@ -183,7 +184,7 @@ public class Planner {
 
     };
 
-//  Отправка на обработку в crawler
+    //  Отправка на обработку в crawler
     private void SendToProccess() {
         List<String> urls = new ArrayList<>();
         this.headerStore.forEach((key, value) -> {
@@ -191,7 +192,7 @@ public class Planner {
                 String hashtext = getMD5Header(value);
                 NewsInfo storedni = esClient.searchNewsInfo(hashtext);
 //              Если записи в базе нет
-                if(storedni == null) {
+                if (storedni == null) {
                     LOGGER.debug("Новость еще не в базе " + value.link);
                     urls.add(value.link);
                 }
@@ -207,7 +208,7 @@ public class Planner {
         SendMessage(json);
     }
 
-//  Вычисление хэша исходя из структуры данных о новости
+    //  Вычисление хэша исходя из структуры данных о новости
     private String getMD5Info(NewsInfo ni) {
         MessageDigest md = null;
         try {
@@ -220,6 +221,7 @@ public class Planner {
         String hashtext = no.toString(16);
         return hashtext;
     }
+
     private String getMD5Header(NewsHeader ni) {
         MessageDigest md = null;
         try {
