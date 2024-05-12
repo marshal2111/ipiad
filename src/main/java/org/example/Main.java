@@ -14,7 +14,7 @@ public class Main {
         Planner planner = new Planner();
 
         ExecutorService executor = Executors.newSingleThreadExecutor();
-        executor.submit(() -> {
+        executor.submit(() -> { 
             planner.getNewsLinks(url);
         });
         planner.Listen();
@@ -72,10 +72,15 @@ public class Main {
 //        c = esClient.countLogsByLevel("ERROR");;
 //        System.out.println("Логов по level: " + c);
 //        System.out.println();
-
+//
 //        System.out.println("esClient.searchNewsByHeaderAndText(\"Штурмуют российские позиции\",\"МОСКВА\",\"10.05.2024\")");
 //        Map<String,String> m3 = esClient.searchNewsByHeaderAndText("Штурмуют российские позиции","МОСКВА","10.05.2024");
 //        System.out.println(m3);
+//        System.out.println();
+//
+//        System.out.println("esClient.searchNewsWithLink()");
+//        List<String> l = esClient.searchNewsWithLink(3);
+//        System.out.println(l);
 //        System.out.println();
 
     }

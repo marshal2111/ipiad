@@ -16,6 +16,8 @@ import org.elasticsearch.client.indices.CreateIndexRequest;
 import org.elasticsearch.client.indices.GetIndexRequest;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
+import org.elasticsearch.script.Script;
+import org.elasticsearch.script.ScriptType;
 import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.aggregations.AggregationBuilders;
 import org.elasticsearch.search.aggregations.bucket.filter.Filter;
@@ -24,6 +26,7 @@ import org.elasticsearch.search.aggregations.bucket.histogram.DateHistogramInter
 import org.elasticsearch.search.aggregations.bucket.histogram.Histogram;
 import org.elasticsearch.search.aggregations.metrics.Cardinality;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
+import org.elasticsearch.search.fetch.subphase.FetchSourceContext;
 import org.elasticsearch.xcontent.XContentType;
 
 
@@ -403,6 +406,42 @@ public class HighElasticClient {
             return 0;
         }
     }
+
+    public List<String> searchNewsWithLink(int size) throws IOException {
+        SearchRequest request = new SearchRequest("meows");
+        request.source().size(size);
+
+        BoolQueryBuilder boolQueryBuilder = QueryBuilders.boolQuery();
+        boolQueryBuilder.must(QueryBuilders.existsQuery("link"));
+        boolQueryBuilder.filter(QueryBuilders.scriptQuery(
+                new Script("doc['link.keyword'].value instanceof String")));
+
+        request.source().query(boolQueryBuilder);
+        request.source().fetchSource(new String[]{"header", "link"}, null);
+
+        try {
+            SearchResponse searchResponse = client.search(request, RequestOptions.DEFAULT);
+            SearchHit[] hits = searchResponse.getHits().getHits();
+            List<String> results = new ArrayList<>();
+            for (SearchHit hit : hits) {
+                Map<String, Object> sourceAsMap = hit.getSourceAsMap();
+                if (sourceAsMap.containsKey("header")) {
+                    String header = (String) sourceAsMap.get("header");
+                    results.add(header);
+                }
+            }
+            return results;
+        } catch (IOException e) {
+            LOGGER.error("Ошибка поиска: " + e.getMessage());
+            return null;
+        }
+    }
+
+
+
+
+
+
 
 
 }
