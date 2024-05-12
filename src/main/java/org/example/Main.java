@@ -14,7 +14,7 @@ public class Main {
         Planner planner = new Planner();
 
         ExecutorService executor = Executors.newSingleThreadExecutor();
-        executor.submit(() -> { 
+        executor.submit(() -> {
             planner.getNewsLinks(url);
         });
         planner.Listen();
