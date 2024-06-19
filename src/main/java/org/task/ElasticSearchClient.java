@@ -34,9 +34,9 @@ import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.*;
 
-public class HighElasticClient {
+public class ElasticSearchClient {
     static {
-        System.setProperty("log4j.configurationFile", "C:\\Users\\senio\\IdeaProjects\\planner\\src\\main\\java\\org\\example\\log4j2.xml");
+        System.setProperty("log4j.configurationFile", "/home/farewelly/crawler/planner/src/main/java/org/task/log4j2.xml");
     }
 
     private static Logger LOGGER = LogManager.getLogger();
@@ -45,7 +45,7 @@ public class HighElasticClient {
     RestHighLevelClient client;
     String INDEX_NAME = "meows";
 
-    HighElasticClient() {
+    ElasticSearchClient() {
         client = new RestHighLevelClient(
                 RestClient.builder(
                         new HttpHost("localhost", 9200, "http"),
@@ -75,12 +75,12 @@ public class HighElasticClient {
                     "      \"properties\": {\n" +
                     "        \"date\": {\n" +
                     "          \"type\": \"date\",\n" +
-                    "          \"format\": \"dd.MM.yyyy\"\n" +
+                    "          \"format\": \"dd.MM.yyyy'T'HH:mm:ss\"\n" +
                     "        }\n" +
                     "  }\n" +
                     "}", XContentType.JSON);
             client.indices().create(request, RequestOptions.DEFAULT);
-            LOGGER.debug("Создан индекс: " + indexName);
+            LOGGER.info("Создан индекс: " + indexName);
         } catch (IOException e) {
             LOGGER.error("Ошибка создания индекса: " + e.getMessage());
             return;
@@ -89,17 +89,17 @@ public class HighElasticClient {
 
 
     //    STORE NI Сохранение информации о новости
-    public boolean storeNewsInfo(NewsInfo newsInfo) throws IOException {
+    public boolean StoreNews(NewsFull news) throws IOException {
         IndexRequest request = new IndexRequest(INDEX_NAME);
-        request.id(newsInfo.getHash());
+        request.id(news.getHash());
 
         // Установить формат даты
-        SimpleDateFormat dateFormat = new SimpleDateFormat("dd.MM.yyyy");
-        String formattedDate = dateFormat.format(newsInfo.getDate());
+        SimpleDateFormat dateFormat = new SimpleDateFormat("dd.MM.yyyy'T'HH:mm:ss");
+        String formattedDate = dateFormat.format(news.getDate());
 
         // Создать карту для хранения источника документа
         Map<String, Object> source = new HashMap<>();
-        source.putAll(newsInfo.toMap());
+        source.putAll(news.toMap());
         source.put("date", formattedDate);
         LOGGER.debug(source);
         // Установить источник документа
@@ -107,7 +107,7 @@ public class HighElasticClient {
 
         try {
             IndexResponse response = client.index(request, RequestOptions.DEFAULT);
-            LOGGER.debug("Записано с идентификатором: " + response.getId());
+            // LOGGER.info("Записано с идентификатором: " + response.getId());
             return true;
         } catch (IOException e) {
             LOGGER.error("Ошибка записи новости: " + e.getMessage());
@@ -117,19 +117,19 @@ public class HighElasticClient {
 
 
     //    SEARCH BY HASH поиск статьи по хэшу
-    public NewsInfo searchNewsInfo(String hash) throws IOException {
+    public NewsFull SearchNews(String hash) throws IOException {
         GetRequest request = new GetRequest(INDEX_NAME, hash);
 
         try {
             GetResponse response = client.get(request, RequestOptions.DEFAULT);
             if (response.isExists()) {
                 Map<String, Object> sourceAsMap = response.getSourceAsMap();
-                NewsInfo newsInfo = new NewsInfo();
-                newsInfo.fromMap(sourceAsMap);
-                LOGGER.debug("Новость найдена: " + newsInfo.getHeader());
-                return newsInfo;
+                NewsFull newsFull = new NewsFull();
+                newsFull.fromMap(sourceAsMap);
+                LOGGER.info("Новость найдена: " + newsFull.getHeader());
+                return newsFull;
             } else {
-                LOGGER.debug("Новость не найдена");
+                LOGGER.info("Новость не найдена");
                 return null;
             }
         } catch (IOException e) {
@@ -138,8 +138,8 @@ public class HighElasticClient {
         }
     }
 
-    //    AND Поиск статьи по заголовку И ссылке
-    public NewsInfo searchNewsInfoAnd(String title, String link) throws IOException {
+    //    Поиск статьи по заголовку И ссылке
+    public NewsFull SearchNewsByHeaderAndLink(String title, String link) throws IOException {
         BoolQueryBuilder queryBuilder = QueryBuilders.boolQuery();
         queryBuilder.must(QueryBuilders.matchQuery("header", title));
         queryBuilder.must(QueryBuilders.matchQuery("link", link));
@@ -157,13 +157,13 @@ public class HighElasticClient {
             SearchHit[] hits = response.getHits().getHits();
             for (SearchHit hit : hits) {
                 Map<String, Object> sourceAsMap = hit.getSourceAsMap();
-                NewsInfo newsInfo = new NewsInfo();
-                newsInfo.fromMap(sourceAsMap);
-                if (newsInfo != null) {
-                    LOGGER.debug("Найдена новость " + newsInfo.getHeader());
-                    return newsInfo;
+                NewsFull newsFull = new NewsFull();
+                newsFull.fromMap(sourceAsMap);
+                if (newsFull != null) {
+                    LOGGER.debug("Найдена новость " + newsFull.getHeader());
+                    return newsFull;
                 } else {
-                    LOGGER.debug("ni == null");
+                    LOGGER.debug("News == null");
                     break;
                 }
             }
@@ -174,8 +174,8 @@ public class HighElasticClient {
         return null;
     }
 
-    //    OR Поиск статьи по заголовку ИЛИ ссылке
-    public NewsInfo searchNewsInfoOr(String title, String link) throws IOException {
+    //  Поиск статьи по заголовку ИЛИ ссылке
+    public NewsFull SearchNewsByHeaderOrLink(String title, String link) throws IOException {
         BoolQueryBuilder queryBuilder = QueryBuilders.boolQuery();
         queryBuilder.should(QueryBuilders.matchQuery("header", title));
         queryBuilder.should(QueryBuilders.matchQuery("link", link));
@@ -193,11 +193,11 @@ public class HighElasticClient {
             SearchHit[] hits = response.getHits().getHits();
             for (SearchHit hit : hits) {
                 Map<String, Object> sourceAsMap = hit.getSourceAsMap();
-                NewsInfo newsInfo = new NewsInfo();
-                newsInfo.fromMap(sourceAsMap);
-                if (newsInfo != null) {
-                    LOGGER.debug("Найдена новость " + newsInfo.getHeader());
-                    return newsInfo;
+                NewsFull newsFull = new NewsFull();
+                newsFull.fromMap(sourceAsMap);
+                if (newsFull != null) {
+                    LOGGER.debug("Найдена новость " + newsFull.getHeader());
+                    return newsFull;
                 } else {
                     LOGGER.error("ni == null");
                     break;
@@ -210,11 +210,11 @@ public class HighElasticClient {
         return null;
     }
 
-    //   DATE HISTOGRAM AGG выдает все записи, сортируя их по дате
-    public Map<String, Long> searchNewsInfoSortByDate() throws IOException {
+    //   Aggregation by date
+    public Map<String, Long> AggregateNewsByDate() throws IOException {
         DateHistogramAggregationBuilder aggregationBuilder = AggregationBuilders.dateHistogram("news_date_aggregation")
                 .field("date")
-                .format("dd.MM.yyyy")
+                .format("dd.MM.yyyy'T'HH:mm:ss")
                 .calendarInterval(DateHistogramInterval.DAY);
 
         SearchSourceBuilder sourceBuilder = new SearchSourceBuilder();
@@ -238,8 +238,8 @@ public class HighElasticClient {
         }
     }
 
-    //    MULTIGET получение записей по хэшам
-    public List<NewsInfo> multiGetNewsInfo(List<String> hashes) throws IOException {
+    // MULTIGET 
+    public List<NewsFull> MultiGetNewsInfo(List<String> hashes) throws IOException {
         MultiGetRequest multiGetRequest = new MultiGetRequest();
         for (String hash : hashes) {
             multiGetRequest.add(new MultiGetRequest.Item(INDEX_NAME, hash));
@@ -247,37 +247,35 @@ public class HighElasticClient {
 
         try {
             MultiGetResponse multiGetResponse = client.mget(multiGetRequest, RequestOptions.DEFAULT);
-            List<NewsInfo> newsInfos = new ArrayList<>();
+            List<NewsFull> newsFulls = new ArrayList<>();
             for (MultiGetItemResponse itemResponse : multiGetResponse.getResponses()) {
                 GetResponse getResponse = itemResponse.getResponse();
                 if (getResponse.isExists()) {
                     Map<String, Object> sourceAsMap = getResponse.getSourceAsMap();
-                    NewsInfo newsInfo = new NewsInfo();
-                    newsInfo.fromMap(sourceAsMap);
-                    newsInfos.add(newsInfo);
+                    NewsFull newsFull = new NewsFull();
+                    newsFull.fromMap(sourceAsMap);
+                    newsFulls.add(newsFull);
                 }
             }
-            return newsInfos;
+            return newsFulls;
         } catch (IOException e) {
             LOGGER.error("Ошибка MultiGet: " + e.getMessage());
             return null;
         }
     }
 
-    // DATE HISTOGRAM AGG выдает записи в диапазоне дат
-    public Map<String, Long> searchNewsInfoByDateRange(String startDate, String endDate) throws IOException {
+    // Аггрегация в диапазоне дат
+    public Map<String, Long> SearchNewsNewsByDatetimeRange(String startDate, String endDate) throws IOException {
         SearchSourceBuilder sourceBuilder = new SearchSourceBuilder();
         HashMap<String, Long> res = new HashMap<>();
-        // устанавливаем фильтр по периоду времени
         sourceBuilder.query(QueryBuilders.rangeQuery("date")
                 .gte(startDate)
                 .lte(endDate));
 
-        // добавляем агрегацию по дате
         sourceBuilder.aggregation(AggregationBuilders.dateHistogram("date_histogram")
                 .field("date")
                 .calendarInterval(DateHistogramInterval.DAY)
-                .format("dd.MM.yyyy"));
+                .format("dd.MM.yyyy'T'HH:mm:ss"));
 
         SearchRequest searchRequest = new SearchRequest(INDEX_NAME);
         searchRequest.source(sourceBuilder);
@@ -298,12 +296,10 @@ public class HighElasticClient {
     }
 
 
-    //    FULL TEXT QUERY полнотекстовый поиск в тексте статьи.
-//    Я использовал для фильтрации по городу, так как в начале каждой статьи написано, где произошло событие(пример "МОСКВА")
-    public Map<String, String> searchNewsByText(String query) {
+    // Полнотекстовый поиск в тексте статьи.
+    public List<NewsFull> SearchNewsByText(String query) {
         SearchSourceBuilder sourceBuilder = new SearchSourceBuilder();
-        HashMap<String, String> res = new HashMap<>();
-        // устанавливаем multi_match query
+        List<NewsFull> newsFulls = new ArrayList<>();
         sourceBuilder.query(QueryBuilders.multiMatchQuery(query, "text"));
 
         SearchRequest searchRequest = new SearchRequest(INDEX_NAME);
@@ -313,20 +309,21 @@ public class HighElasticClient {
             SearchResponse searchResponse = client.search(searchRequest, RequestOptions.DEFAULT);
             SearchHit[] hits = searchResponse.getHits().getHits();
             for (SearchHit hit : hits) {
-                String hash = (String) hit.getSourceAsMap().get("hash");
-                String text = (String) hit.getSourceAsMap().get("text");
-                res.put(hash, text);
+                Map<String, Object> sourceAsMap = hit.getSourceAsMap();
+                NewsFull newsFull = new NewsFull();
+                newsFull.fromMap(sourceAsMap);
+                newsFulls.add(newsFull);
             }
         } catch (IOException e) {
             LOGGER.error("Ошибка поиска: " + e.getMessage());
             return null;
         }
-        return res;
+        return newsFulls;
     }
 
-    public Map<String, String> searchNewsByHeaderAndText(String header, String text, String date) {
+    public List<NewsFull> SearchNewsByHeaderAndText(String header, String text, String date) {
         SearchSourceBuilder sourceBuilder = new SearchSourceBuilder();
-        HashMap<String, String> res = new HashMap<>();
+        List<NewsFull> res = new ArrayList<>();
 
         BoolQueryBuilder boolQueryBuilder = QueryBuilders.boolQuery();
         boolQueryBuilder.must(QueryBuilders.matchQuery("header", header));
@@ -342,9 +339,10 @@ public class HighElasticClient {
             SearchResponse searchResponse = client.search(searchRequest, RequestOptions.DEFAULT);
             SearchHit[] hits = searchResponse.getHits().getHits();
             for (SearchHit hit : hits) {
-                String hash = (String) hit.getSourceAsMap().get("hash");
-                String head = (String) hit.getSourceAsMap().get("header");
-                res.put(hash, head);
+                Map<String, Object> sourceAsMap = hit.getSourceAsMap();
+                NewsFull newsFull = new NewsFull();
+                newsFull.fromMap(sourceAsMap);
+                res.add(newsFull);
             }
         } catch (IOException e) {
             LOGGER.error("Ошибка поиска: " + e.getMessage());
@@ -354,14 +352,16 @@ public class HighElasticClient {
     }
 
 
-    //    METRICS AGGR Подсчет новостей к конкретную дату
-    public long countNewsByDate(String date) {
+    // METRICS AGGR Подсчет новостей за конкретную дату
+    public long CountNewsByDate(String date) {
         SearchSourceBuilder sourceBuilder = new SearchSourceBuilder();
 
         // устанавливаем фильтр по дате
-        sourceBuilder.query(QueryBuilders.termQuery("date", date));
+        sourceBuilder.query(QueryBuilders.rangeQuery("date")
+                .gte(date+"T00:00:00")
+                .lte(date+"T23:59:00"));
 
-        // добавляем metrics агрегацию по количеству меовов
+        // добавляем metrics агрегацию по количеству новостей
         sourceBuilder.aggregation(AggregationBuilders.cardinality("news_count").field("hash.keyword"));
 
         // устанавливаем размер результата в 0, чтобы не возвращались сами документы
@@ -382,7 +382,7 @@ public class HighElasticClient {
     }
 
     //   LOGSTASH AGGR Подсчет логов по типу (INFO, ERROR)
-    public long countLogsByLevel(String level) throws IOException {
+    public long CountLogsByLevel(String level) throws IOException {
         SearchSourceBuilder sourceBuilder = new SearchSourceBuilder();
 
         // устанавливаем фильтр по уровню лога с использованием multi-match query
@@ -436,12 +436,4 @@ public class HighElasticClient {
             return null;
         }
     }
-
-
-
-
-
-
-
-
 }

@@ -6,7 +6,7 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 
-public class NewsInfo {
+public class NewsFull {
     String hash;
     String text;
     String header;
@@ -19,7 +19,7 @@ public class NewsInfo {
         System.out.println("Date: " + date);
         System.out.println("Link: " + link);
         System.out.println("Hash: " + hash);
-        System.out.println();
+        System.out.println("Text: " + text);
     }
 
     public void printText() {
@@ -44,7 +44,7 @@ public class NewsInfo {
         this.hash = map.get("hash").toString();
         this.text = map.get("text").toString();
         this.header = map.get("header").toString();
-        // Преобразовать дату из формата "dd.MM.yyyy" в объект Date
+        // Преобразовать дату из формата "dd.MM.yyyy'T'HH:mm:ss" в объект Date
         String dateString = map.get("date").toString();
         SimpleDateFormat dateFormat = new SimpleDateFormat("dd.MM.yyyy");
         try {

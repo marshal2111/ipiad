@@ -7,7 +7,7 @@ import java.util.UUID;
 import java.util.zip.CRC32;
 import java.util.zip.Checksum;
 
-public class NewsHeader {
+public class NewsPreview {
     String title;
     String date;
     String link;
@@ -15,7 +15,7 @@ public class NewsHeader {
     Boolean read = false;
     int ID;
 
-    NewsHeader(String title, String date, String link) {
+    NewsPreview(String title, String date, String link) {
         this.title = title;
         this.date = date;
         this.link = link;
@@ -25,14 +25,14 @@ public class NewsHeader {
         } catch (NoSuchAlgorithmException e) {
             throw new RuntimeException(e);
         }
-        byte[] messageDigest = md.digest((this.title + this.link).getBytes());
+        byte[] messageDigest = md.digest((this.link).getBytes());
         BigInteger no = new BigInteger(1, messageDigest);
         this.hashMD5 = no.toString(16);
         this.ID = (int)UUID.randomUUID().getMostSignificantBits();
     }
 
     public void Store() {
-        System.out.println("Новость");
+        System.out.println("========================================");
         System.out.println(this.date);
         System.out.println(this.title);
         System.out.println(this.link);
