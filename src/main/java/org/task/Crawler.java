@@ -1,4 +1,4 @@
-package org.example;
+package org.task;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -28,24 +28,22 @@ import org.apache.logging.log4j.Logger;
 
 public class Crawler {
     private static final String USER = "guest";
-    private static final String HOST = "172.17.0.2";
     private static final String PASS = "guest";
-
-    private String RECIEVE_QUEUE_NAME = "scheduler_queue";
-    private String SEND_QUEUE_NAME = "crawler_queue";
-    private String SEND_ROUTING_KEY = "cr_to_pl";
-    private String RECIEVE_ROUTING_KEY = "pl_to_cr";
-    private String EXCHANGE_NAME = "parser";
+    private static final String HOST = "172.17.0.2";
+    private static final String RECIEVE_QUEUE_NAME = "scheduler_queue";
+    private static final String SEND_QUEUE_NAME = "crawler_queue";
+    private static final String SEND_ROUTING_KEY = "crawler-to-scheduler";
+    private static final String RECIEVE_ROUTING_KEY = "scheduler-to-crawler";
+    private static final String EXCHANGE_NAME = "parser";
     private int numThreads;
-    Queue crawler_queue;
-    Queue scheduler_queue;
-    
     static {
-        System.setProperty("log4j.configurationFile", "/home/farewelly/crawler/planner/src/main/java/org/task/log4j2.xml");
+        System.setProperty("log4j.configurationFile", "/home/farewelly/crawler/ipiad/src/main/java/org/task/log4j2.xml");
     }
 
     private static Logger LOGGER = LogManager.getLogger();
-
+    Queue crawler_queue;
+    Queue scheduler_queue;
+    
     Crawler(int numThreads) throws IOException {
         this.numThreads = numThreads;
         this.scheduler_queue = new Queue(RECIEVE_ROUTING_KEY, EXCHANGE_NAME, RECIEVE_QUEUE_NAME);
@@ -60,54 +58,48 @@ public class Crawler {
     public void Listen() {
         LOGGER.info("Start listening");
         scheduler_queue.BindQueue();
-        scheduler_queue.Listen(start);
+        scheduler_queue.Listen(process);
     }
 
-    public void SendMessage(String msg) {
-        try {
-            crawler_queue.channel.basicPublish(EXCHANGE_NAME, SEND_ROUTING_KEY, null, msg.getBytes());
-        } catch (Exception e) {
-            LOGGER.info("channel.basicPublish");
-            LOGGER.info(e);
-        }
-    }
-
-    DeliverCallback start = (consumerTag, delivery) -> {
-
-        LOGGER.info("Got message");
+    DeliverCallback process = (consumerTag, delivery) -> {
         String jsonString = new String(delivery.getBody(), StandardCharsets.UTF_8);
         JSONArray jsonArray = null;
         try {
             jsonArray = new JSONArray(jsonString);
         } catch (Exception e) {
-            LOGGER.info("Incorrect input string");
-            LOGGER.info(jsonString);
+            LOGGER.error("Incorrect input string: " + jsonString);
             return;
         }
         scheduler_queue.getChannel().basicAck(delivery.getEnvelope().getDeliveryTag(), false);
-        System.out.println("start");
+        LOGGER.info("START PARSING");
 
-        // Преобразуем JSONArray в ArrayList<String>
         ArrayList<String> urls = new ArrayList<>();
         for (int i = 0; i < jsonArray.length(); i++) {
             urls.add(jsonArray.getString(i));
         }
         LOGGER.info(urls);
         try {
-            StartParse(urls);
+            StartParsing(urls);
         } catch (InterruptedException e) {
             throw new RuntimeException(e);
         }
-        System.out.println("DONE");
+        LOGGER.info("DONE PARSING");
     };
 
-    public void StartParse(ArrayList<String> urls) throws InterruptedException {
+    public void SendMessage(String msg) {
+        try {
+            crawler_queue.channel.basicPublish(EXCHANGE_NAME, SEND_ROUTING_KEY, null, msg.getBytes());
+        } catch (Exception e) {
+            LOGGER.error("Error publishing message: " + e);
+        }
+    }
+
+    public void StartParsing(ArrayList<String> urls) throws InterruptedException {
         ExecutorService executor = null;
         try {
             executor = Executors.newFixedThreadPool(this.numThreads);
         } catch (Exception e) {
-            LOGGER.info("Error: Executors.newFixedThreadPool()");
-            LOGGER.info(e.getMessage());
+            LOGGER.error("Error creating executor: " + e.getMessage());
             return;
         }
 
@@ -119,9 +111,9 @@ public class Crawler {
                 } catch (InterruptedException e) {
                     throw new RuntimeException(e);
                 }
-                news.set(Parse(url));
+                news.set(ParsePage(url));
                 synchronized (Objects.requireNonNull(news)) {
-                    this.Response(news.get());
+                    Response(news.get());
                 }
             });
         }
@@ -130,8 +122,7 @@ public class Crawler {
         }
     }
 
-    private NewsFull Parse(String url) {
-        NewsFull newsFull = new NewsFull();
+    private NewsFull ParsePage(String url) {
         try {
             Document document = Jsoup.connect(url).get();
             int statusCode = document.connection().response().statusCode();
@@ -139,58 +130,59 @@ public class Crawler {
                 case 200:
                     break;
                 case 404:
-                    LOGGER.info("Error: page not found");
+                    LOGGER.error("Error: page not found");
                     return null;
                 case 500:
-                    LOGGER.info("Internal server error");
+                    LOGGER.error("Internal server error");
                     return null;
                 default:
-                    LOGGER.info("Incorrect status code: %d\n", statusCode);
+                    LOGGER.error("Incorrect status code: %d\n", statusCode);
                     return null;    
             }
 
             Elements text_body = document.select("div.b_main");
             Elements text_piecies = text_body.select("p");
-            
             StringBuilder sb = new StringBuilder();
             for (Element text: text_piecies) {
                 sb.append(text.text()).append(" ");
             }
+
+            Element title = document.selectFirst(".headline");
             
             Element date = document.selectFirst("[itemprop='datePublished']");
             SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssXXX");
-            String datetime = date.attr("datetime");
+            String datetime_s = date.attr("datetime");
+            Date datetime_f = new Date();
 
             try {
-                newsFull.date = dateFormat.parse(datetime);
+                datetime_f = dateFormat.parse(datetime_s);
             } catch (Exception e) {
                 LOGGER.info(e);
             }
 
-            Element title = document.selectFirst(".headline");
+            String text = sb.toString();
+            NewsFull newsFull = new NewsFull(title.text(), 
+                                             datetime_f, 
+                                             url,
+                                             sb.toString());
+            return newsFull;
 
-            newsFull.link = url;
-            newsFull.text = sb.toString();
-            newsFull.header = title.text();
         } catch (IOException e) {
-            LOGGER.info(e);
+            LOGGER.error("Error parsing page: " + e);
             return null;
         }
-        return newsFull;
     }
 
     private void Response(NewsFull news) {
+        news.print();
         ObjectMapper objectMapper = new ObjectMapper();
         String json;
         try {
             json = objectMapper.writeValueAsString(news);
         } catch (JsonProcessingException e) {
-            LOGGER.info("objectMapper.writeValueAsString(ni)");
-            LOGGER.info(e);
+            LOGGER.error("Error making response message: " + e);
             return;
         }
         SendMessage(json);
     }
-
-
 }

@@ -1,4 +1,4 @@
-package org.example;
+package org.task;
 
 import java.math.BigInteger;
 import java.security.MessageDigest;
@@ -19,15 +19,7 @@ public class NewsPreview {
         this.title = title;
         this.date = date;
         this.link = link;
-        MessageDigest md = null;
-        try {
-            md = MessageDigest.getInstance("MD5");
-        } catch (NoSuchAlgorithmException e) {
-            throw new RuntimeException(e);
-        }
-        byte[] messageDigest = md.digest((this.link).getBytes());
-        BigInteger no = new BigInteger(1, messageDigest);
-        this.hashMD5 = no.toString(16);
+        this.hashMD5 = getMD5(link);
         this.ID = (int)UUID.randomUUID().getMostSignificantBits();
     }
 
@@ -37,5 +29,18 @@ public class NewsPreview {
         System.out.println(this.title);
         System.out.println(this.link);
         System.out.println(this.hashMD5);
+    }
+
+    private String getMD5(String ref) {
+        MessageDigest md = null;
+        try {
+            md = MessageDigest.getInstance("MD5");
+        } catch (NoSuchAlgorithmException e) {
+            throw new RuntimeException(e);
+        }
+        byte[] messageDigest = md.digest((ref).getBytes());
+        BigInteger no = new BigInteger(1, messageDigest);
+        String hashtext = no.toString(16);
+        return hashtext;
     }
 }

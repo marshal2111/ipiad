@@ -1,10 +1,12 @@
-package org.example;
+package org.task;
 
 import com.rabbitmq.client.Channel;
 
 import com.rabbitmq.client.Connection;
 import com.rabbitmq.client.ConnectionFactory;
 import com.rabbitmq.client.DeliverCallback;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import java.io.IOException;
 
@@ -12,13 +14,14 @@ public class Queue {
     private static final String USER = "guest";
     private static final String HOST = "172.17.0.2";
     private static final String PASS = "guest";
-    String QUEUE_NAME;
-    String EXCHANGE_NAME;
-    String ROUTING_KEY;
+    private String QUEUE_NAME;
+    private String EXCHANGE_NAME;
+    private String ROUTING_KEY;
     Channel channel;
+    private static Logger LOGGER = LogManager.getLogger();
 
-    Queue(String rKey, String exchangeName, String queueName) throws IOException {
-        ROUTING_KEY = rKey;
+    Queue(String routingKey, String exchangeName, String queueName) throws IOException {
+        ROUTING_KEY = routingKey;
         EXCHANGE_NAME = exchangeName;
         QUEUE_NAME = queueName;
 
@@ -34,22 +37,21 @@ public class Queue {
         try {
             connection = factory.newConnection();
         } catch (Exception e) {
-            System.out.println("Queue()");
-            System.out.println(e);
+            LOGGER.error("Failed to create connection: " + e);
             return;
         }
         Channel channel;
         try {
             channel = connection.createChannel();
         } catch (Exception e) {
-            System.out.println("Queue: Failed to create channel: " + e);
+            LOGGER.error("Failed to create channel: " + e);
             return;
         }
 
         try {
             channel.exchangeDeclare(EXCHANGE_NAME,"direct");
         } catch (Exception e) {
-            System.out.println("Queue: Failed to declare exchange: " + e);
+            LOGGER.error("Failed to declare exchange: " + e);
             return;
         }
 
@@ -60,8 +62,8 @@ public class Queue {
         try {
             this.channel.queueBind(QUEUE_NAME,EXCHANGE_NAME,ROUTING_KEY);
         } catch (Exception e) {
-            System.out.println("Queue: Failed to bind queue: " + e);
-            System.out.println(QUEUE_NAME + " " + EXCHANGE_NAME + " " + ROUTING_KEY);
+            LOGGER.error("Failed to bind queue: " + e);
+            // System.out.println(QUEUE_NAME + " " + EXCHANGE_NAME + " " + ROUTING_KEY);
             return;
         }
     }
@@ -70,8 +72,7 @@ public class Queue {
         try {
             this.channel.queueDeclare(QUEUE_NAME, false, false, false, null);
         } catch (Exception e) {
-            System.out.println("channel.queueDeclare");
-            System.out.println(e);
+            LOGGER.error("Failed to declare queue: " + e);
             return;
         }
     }
@@ -81,11 +82,10 @@ public class Queue {
             if (channel.isOpen()) {
                 channel.basicConsume(QUEUE_NAME,false,deliverCallback, consumerTag-> { });
             } else {
-                System.out.println("closed channel input");
+                LOGGER.info("Input channel is closed");
             }
         } catch (Exception e) {
-            System.out.println("Error during listening: " + QUEUE_NAME);
-            System.out.println(e);
+            LOGGER.error("Error during listening: " + e);
             return;
         }
     }

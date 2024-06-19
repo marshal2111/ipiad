@@ -1,4 +1,4 @@
-package org.example;
+package org.task;
 
 import org.apache.http.HttpHost;
 import org.apache.logging.log4j.LogManager;
@@ -36,7 +36,7 @@ import java.util.*;
 
 public class ElasticSearchClient {
     static {
-        System.setProperty("log4j.configurationFile", "/home/farewelly/crawler/planner/src/main/java/org/task/log4j2.xml");
+        System.setProperty("log4j.configurationFile", "/home/farewelly/crawler/ipiad/src/main/java/org/task/log4j2.xml");
     }
 
     private static Logger LOGGER = LogManager.getLogger();
@@ -119,7 +119,7 @@ public class ElasticSearchClient {
     //    SEARCH BY HASH поиск статьи по хэшу
     public NewsFull SearchNews(String hash) throws IOException {
         GetRequest request = new GetRequest(INDEX_NAME, hash);
-
+        // LOGGER.debug("HASH: " + hash);
         try {
             GetResponse response = client.get(request, RequestOptions.DEFAULT);
             if (response.isExists()) {

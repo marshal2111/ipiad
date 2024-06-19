@@ -1,10 +1,13 @@
-package org.example;
+package org.task;
 
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
+import java.math.BigInteger;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 
 public class NewsFull {
     String hash;
@@ -13,8 +16,17 @@ public class NewsFull {
     Date date;
     String link;
 
+    NewsFull() {}
+
+    NewsFull(String title, Date date, String link, String text) {
+        this.header = title;
+        this.date = date;
+        this.link = link;
+        this.hash = getMD5(link);
+        this.text = text;
+    }
+
     public void print() {
-        System.out.println();
         System.out.println("Header: " + header);
         System.out.println("Date: " + date);
         System.out.println("Link: " + link);
@@ -23,9 +35,7 @@ public class NewsFull {
     }
 
     public void printText() {
-        System.out.println();
         System.out.println(this.text);
-        System.out.println();
     }
 
     public Map<String, String> toMap() {
@@ -33,7 +43,7 @@ public class NewsFull {
         map.put("hash", hash);
         map.put("text", text);
         map.put("header", header);
-        SimpleDateFormat dateFormat = new SimpleDateFormat("dd.MM.yyyy");
+        SimpleDateFormat dateFormat = new SimpleDateFormat("dd.MM.yyyy'T'HH:mm:ss");
         String dateString = dateFormat.format(date);
         map.put("date", dateString);
         map.put("link", link);
@@ -44,9 +54,8 @@ public class NewsFull {
         this.hash = map.get("hash").toString();
         this.text = map.get("text").toString();
         this.header = map.get("header").toString();
-        // Преобразовать дату из формата "dd.MM.yyyy'T'HH:mm:ss" в объект Date
         String dateString = map.get("date").toString();
-        SimpleDateFormat dateFormat = new SimpleDateFormat("dd.MM.yyyy");
+        SimpleDateFormat dateFormat = new SimpleDateFormat("dd.MM.yyyy'T'HH:mm:ss");
         try {
             this.date = dateFormat.parse(dateString);
         } catch (ParseException e) {
@@ -54,6 +63,20 @@ public class NewsFull {
         }
         this.link = map.get("link").toString();
     }
+
+    private String getMD5(String ref) {
+        MessageDigest md = null;
+        try {
+            md = MessageDigest.getInstance("MD5");
+        } catch (NoSuchAlgorithmException e) {
+            throw new RuntimeException(e);
+        }
+        byte[] messageDigest = md.digest((ref).getBytes());
+        BigInteger no = new BigInteger(1, messageDigest);
+        String hashtext = no.toString(16);
+        return hashtext;
+    }
+
 
     public String getText() {
         return text;
@@ -71,6 +94,10 @@ public class NewsFull {
         return link;
     }
 
+    public String getHash() {
+        return hash;
+    }
+
     public void setText(String text) {
         this.text = text;
     }
@@ -85,10 +112,6 @@ public class NewsFull {
 
     public void setLink(String link) {
         this.link = link;
-    }
-
-    public String getHash() {
-        return hash;
     }
 
     public void setHash(String hash) {

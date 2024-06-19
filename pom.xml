@@ -108,7 +108,7 @@
             <artifactId>exec-maven-plugin</artifactId>
             <version>3.3.0</version>
             <configuration>
-                <mainClass>org.example.Main</mainClass>
+                <mainClass>org.task.Main</mainClass>
             </configuration>
         </plugin>
     </plugins>
